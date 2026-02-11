@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1280">
+    <title>VYUHA | STRATEGIC CONSOLE</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="loader" class="sys-overlay">
+        <div class="loader-content">
+            <div class="spinner"></div>
+            <div class="mono-label">ESTABLISHING SECURE CONNECTION...</div>
+        </div>
+    </div>
+
+    <div id="login" class="sys-overlay">
+        <div class="login-panel">
+            <div class="login-brand"><img src="logo.png" alt="VYUHA"></div>
+            <h1>COMMAND ACCESS</h1>
+            <div class="input-stack">
+                <input type="email" id="email" placeholder="OPERATOR ID" autocomplete="off">
+                <input type="password" id="pass" placeholder="ACCESS KEY">
+            </div>
+            <button id="btnLogin" class="btn-hero">INITIALIZE SYSTEM</button>
+            <div id="loginMsg" class="err-txt"></div>
+        </div>
+    </div>
+
+    <div id="app" class="interface-layer hidden">
+        
+        <aside class="sidebar-panel">
+            <div class="brand-header"><img src="logo.png" alt="Logo"></div>
+            <div class="user-widget">
+                <div id="uAvatar" class="avatar-box"></div>
+                <div class="user-info">
+                    <div id="uName" class="u-name">...</div>
+                    <div id="uRole" class="u-role">UNIT</div>
+                </div>
+            </div>
+            <div class="nav-header">SECTOR CONTROL</div>
+            <nav id="roomListNav" class="nav-stack"></nav>
+            <div class="sidebar-footer">
+                <button onclick="app.logout()" class="btn-disconnect">
+                    <i class="ph-bold ph-power"></i> SHUTDOWN
+                </button>
+            </div>
+        </aside>
+
+        <main class="content-canvas">
+            <header class="top-bar">
+                <h2 id="currentRoomTitle">SELECT SECTOR</h2>
+                <div class="status-badge" id="sysStatus">SYSTEM IDLE</div>
+            </header>
+
+            <div class="content-container">
+
+                <div id="adminZone" class="admin-panel hidden">
+                    <div class="panel-head">
+                        <h3>BATTLE CONFIGURATION</h3>
+                        <span class="mono-sub">EXECUTE NEURAL SIMULATION</span>
+                    </div>
+
+                    <div id="warControls" class="war-input-box">
+                        <input type="text" id="warTopic" placeholder="ENTER BATTLE PARAMETER (TOPIC)...">
+                        <button onclick="app.initiateWar()" class="btn-fire">
+                            <i class="ph-bold ph-lightning"></i> START WAR
+                        </button>
+                    </div>
+
+                    <div id="judgeControls" class="war-input-box hidden">
+                        <div class="judge-msg" style="flex:1; display:flex; align-items:center; font-weight:bold; color:#00C853;">
+                            <i class="ph-bold ph-check-circle" style="margin-right:10px;"></i> 
+                            ARGUMENTS RECEIVED. READY FOR VERDICT.
+                        </div>
+                        <button onclick="app.triggerJudge()" class="btn-judge btn-fire" style="background:#000;">
+                            <i class="ph-bold ph-gavel"></i> DECLARE WINNER
+                        </button>
+                    </div>
+
+                    <div class="participant-selector">
+                        <div class="ps-header">
+                            <span>ACTIVE UNITS</span>
+                            <div>
+                                <button onclick="app.selectAll()" class="btn-xs">ALL</button>
+                                <button onclick="app.deselectAll()" class="btn-xs">NONE</button>
+                            </div>
+                        </div>
+                        <div id="participantGrid" class="ps-grid"></div>
+                    </div>
+
+                    <div id="liveTerminal" class="terminal-box hidden">
+                        <div class="term-header">/// NEURAL PROCESS LOG ///</div>
+                        <div id="termLogs" class="term-content"></div>
+                    </div>
+                </div>
+
+                <div id="battleFeed" class="battle-feed">
+                    <div class="feed-placeholder">SELECT A SECTOR TO VIEW ARCHIVES</div>
+                </div>
+                <div style="height: 100px;"></div>
+            </div>
+        </main>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, get, update, set, child, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBdK4ZRrRcmisVVOW_hTMIowtts2I4iGzA",
+            authDomain: "ai-quizz-97fb9.firebaseapp.com",
+            databaseURL: "https://ai-quizz-97fb9-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "ai-quizz-97fb9",
+            storageBucket: "ai-quizz-97fb9.firebasestorage.app",
+            messagingSenderId: "572423560278",
+            appId: "1:572423560278:web:c15c0e8a14b452068f2ff7"
+        };
+
+        const db = getDatabase(initializeApp(firebaseConfig));
+        
+        let currentUser = null;
+        let activeRoomId = null;
+        let adminJudgeData = null;
+        
+        // TEMP STORAGE (For Manual Judge Trigger)
+        let tempBattleData = null;
+        let tempParticipants = [];
+
+        window.app = {
+            init: () => {
+                const s = sessionStorage.getItem("vyuha_v5");
+                if(s) { const d = JSON.parse(s); app.loadSuccess(d.role, d.user); }
+                else { document.getElementById("loader").classList.add("hidden"); }
+            },
+
+            login: async () => {
+                const e = document.getElementById("email").value.trim();
+                const p = document.getElementById("pass").value.trim();
+                const msg = document.getElementById("loginMsg");
+                if(!e || !p) return msg.innerText = "CREDENTIALS REQUIRED";
+                document.getElementById("btnLogin").innerText = "VERIFYING...";
+
+                try {
+                    const dbRef = ref(db);
+                    // ADMIN
+                    const adm = await get(child(dbRef, "system_config/admin_profile"));
+                    if(adm.exists() && adm.val().email == e && adm.val().password == p) {
+                        const judge = await get(child(dbRef, "system_config/judge_bot"));
+                        adminJudgeData = judge.exists() ? judge.val() : {};
+                        return app.loadSuccess("ADMIN", adm.val());
+                    }
+                    // VIEWER
+                    const stu = await get(child(dbRef, "students"));
+                    if(stu.exists()) {
+                        for(const [k, v] of Object.entries(stu.val())) {
+                            if(v.private_info.email == e && v.private_info.password == p) 
+                                return app.loadSuccess("VIEWER", {...v.public_info, key:k});
+                        }
+                    }
+                    const sch = await get(child(dbRef, "schools"));
+                    if(sch.exists()) {
+                        for(const [k, v] of Object.entries(sch.val())) {
+                            if(v.private_info.email == e && v.private_info.password == p) 
+                                return app.loadSuccess("VIEWER", {...v.public_info, key:k});
+                        }
+                    }
+                    msg.innerText = "ACCESS DENIED"; document.getElementById("btnLogin").innerText = "INITIALIZE SYSTEM";
+                } catch(e) { console.error(e); msg.innerText = "NETWORK ERROR"; }
+            },
+
+            loadSuccess: (role, data) => {
+                currentUser = data; 
+                sessionStorage.setItem("vyuha_v5", JSON.stringify({role, user: data}));
+                document.getElementById("login").classList.add("hidden");
+                document.getElementById("loader").classList.add("hidden");
+                document.getElementById("app").classList.remove("hidden");
+                document.getElementById("uName").innerText = data.name || data.key || "OPERATOR";
+                document.getElementById("uRole").innerText = role;
+                const av = data.avatarUrl || data.logoUrl || "https://api.dicebear.com/7.x/shapes/svg?seed=Admin";
+                document.getElementById("uAvatar").style.backgroundImage = `url('${av}')`;
+
+                app.loadRooms();
+                if(role === "ADMIN") {
+                    document.getElementById("adminZone").classList.remove("hidden");
+                    app.loadParticipants();
+                }
+            },
+
+            loadRooms: async () => {
+                const nav = document.getElementById("roomListNav");
+                const snap = await get(child(ref(db), "rooms"));
+                if(snap.exists()) {
+                    nav.innerHTML = "";
+                    Object.entries(snap.val()).forEach(([k, v]) => {
+                        if(v.active) nav.innerHTML += `<button class="nav-item" onclick="app.enterRoom('${k}')"><i class="ph-bold ph-hash"></i> ${k.toUpperCase()}</button>`;
+                    });
+                }
+            },
+
+            loadParticipants: async () => {
+                const grid = document.getElementById("participantGrid");
+                grid.innerHTML = "<div class='mono-label'>SCANNING...</div>";
+                let html = "";
+                const stu = await get(child(ref(db), "students"));
+                if(stu.exists()) Object.entries(stu.val()).forEach(([k, v]) => html += `<label class="p-card"><input type="checkbox" class="p-check" value="student::${k}"><div class="p-info"><strong>${v.public_info.botName}</strong><span>${k}</span></div></label>`);
+                const sch = await get(child(ref(db), "schools"));
+                if(sch.exists()) Object.entries(sch.val()).forEach(([k, v]) => html += `<label class="p-card school"><input type="checkbox" class="p-check" value="school::${k}"><div class="p-info"><strong>${v.public_info.botName}</strong><span>${k}</span></div></label>`);
+                grid.innerHTML = html;
+            },
+
+            enterRoom: (roomId) => {
+                activeRoomId = roomId;
+                document.getElementById("currentRoomTitle").innerText = `SECTOR: ${roomId}`;
+                document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
+                event.currentTarget.classList.add("active");
+
+                const chatRef = ref(db, `room_chats/${roomId}`);
+                onValue(chatRef, (snap) => {
+                    const feed = document.getElementById("battleFeed");
+                    feed.innerHTML = "";
+                    if(snap.exists()) {
+                        const sessions = Object.values(snap.val()).sort((a,b) => new Date(b.meta.date) - new Date(a.meta.date));
+                        sessions.forEach(s => app.renderSession(s, feed));
+                    } else {
+                        feed.innerHTML = `<div class="feed-placeholder">NO ARCHIVES FOUND FOR ${roomId}</div>`;
+                    }
+                });
+            },
+
+            renderSession: (session, container) => {
+                let html = `<div class="battle-session"><div class="bs-header"><div class="bs-topic">${session.meta.topic}</div><div class="bs-date">${new Date(session.meta.date).toLocaleString()}</div></div><div class="bs-content">`;
+                if(session.transcript) {
+                    session.transcript.forEach(msg => {
+                        let side = "left"; let colorClass = "msg-bot";
+                        if(msg.role === "judge") { side = "center"; colorClass = "msg-judge"; }
+                        html += `<div class="msg-row ${side}"><div class="msg-bubble ${colorClass}"><div class="msg-sender">${msg.sender}</div><div class="msg-text">${marked.parse(msg.text || "")}</div></div></div>`;
+                    });
+                }
+                if(session.judge_feedback) {
+                    html += `<div class="judge-verdict"><div class="jv-title">SUPREME AI VERDICT</div><div class="jv-winner">WINNER: ${session.meta.winner}</div><div class="jv-reason">${session.judge_feedback.comment}</div><div class="jv-score">${session.judge_feedback.score}</div></div>`;
+                }
+                html += `</div></div>`;
+                container.innerHTML += html;
+            },
+
+            // --- STEP 1: START WAR (BOTS ONLY) ---
+            initiateWar: async () => {
+                if(!activeRoomId) { alert("SELECT A SECTOR FIRST"); return; }
+                const topic = document.getElementById("warTopic").value.trim();
+                const checks = document.querySelectorAll(".p-check:checked");
+                
+                if(!topic) { alert("ENTER TOPIC"); return; }
+                if(checks.length < 1) { alert("SELECT COMBATANTS"); return; }
+
+                // UI SETUP
+                const term = document.getElementById("liveTerminal");
+                const logs = document.getElementById("termLogs");
+                term.classList.remove("hidden");
+                logs.innerHTML = `<div>> SYSTEM INITIALIZED</div><div>> TARGET: ${topic}</div>`;
+                
+                // Hide Start Button, Show Processing
+                document.getElementById("warControls").classList.add("hidden");
+                
+                // Reset Judge Button
+                const btnJudge = document.querySelector(".btn-judge");
+                btnJudge.disabled = true;
+                btnJudge.innerText = "AWAITING BOT RESPONSES...";
+                document.getElementById("judgeControls").classList.remove("hidden");
+
+                tempParticipants = [];
+                checks.forEach(c => { const [type, id] = c.value.split("::"); tempParticipants.push({type, id}); });
+
+                // PREPARE TEMP DATA
+                tempBattleData = {
+                    meta: { topic, date: new Date().toISOString(), participants: [], status: "PENDING", winner: "PENDING" },
+                    transcript: [],
+                    judge_feedback: {}
+                };
+
+                tempBattleData.transcript.push({
+                    role: "judge", sender: "Supreme AI Justice", 
+                    text: `BATTLE INITIALIZED.\nTOPIC: **${topic}**\nPARTICIPANTS: ${tempParticipants.length}`
+                });
+
+                // LOOP BOTS
+                for(const p of tempParticipants) {
+                    try {
+                        logs.innerHTML += `<div>> CONNECTING TO ${p.id}...</div>`;
+                        const snap = await get(child(ref(db), `${p.type}s/${p.id}`));
+                        const priv = snap.val().private_info;
+                        const pub = snap.val().public_info;
+                        const botName = pub.botName || "Unknown Bot";
+                        
+                        tempBattleData.meta.participants.push(botName);
+
+                        if(!priv.apiKey) {
+                            logs.innerHTML += `<div style="color:red">> ERROR: No API Key for ${botName}</div>`;
+                            tempBattleData.transcript.push({ role: "bot", sender: botName, text: "ERROR: API Key Missing." });
+                            continue;
+                        }
+
+                        // STRICTLY USE USER'S MODEL
+                        let model = priv.model || "gemini-2.5-flash"; 
+                        const strategy = (priv.strategies && priv.strategies[activeRoomId]) || "Be logical.";
+                        const prompt = `You are ${botName}. Topic: "${topic}". Strategy: ${strategy}. Keep it under 50 words.`;
+
+                        const reply = await app.callGemini(priv.apiKey, model, prompt);
+                        
+                        if(reply.startsWith("ERROR")) {
+                             logs.innerHTML += `<div style="color:red">> ${reply}</div>`;
+                        } else {
+                             logs.innerHTML += `<div style="color:#00FF00">> ${botName} RESPONDED</div>`;
+                        }
+                        tempBattleData.transcript.push({ role: "bot", sender: botName, text: reply });
+
+                    } catch(e) {
+                        logs.innerHTML += `<div style="color:red">> CRITICAL ERROR: ${e.message}</div>`;
+                    }
+                }
+
+                // ENABLE JUDGE BUTTON
+                logs.innerHTML += `<div>> ALL BOTS REPORTED. WAITING FOR JUDGE...</div>`;
+                btnJudge.disabled = false;
+                btnJudge.innerHTML = `<i class="ph-bold ph-gavel"></i> DECLARE WINNER`;
+            },
+
+            // --- STEP 2: DECLARE WINNER (JUDGE + SAVE) ---
+            triggerJudge: async () => {
+                const logs = document.getElementById("termLogs");
+                logs.innerHTML += `<div>> JUDGE ANALYZING DATA...</div>`;
+                
+                const btnJudge = document.querySelector(".btn-judge");
+                btnJudge.innerText = "JUDGING...";
+                btnJudge.disabled = true;
+                
+                let decision = { winner: "DRAW", reason: "Judge Offline", score: "0/100" };
+
+                // Get Judge Config strictly from DB
+                const judgeSnap = await get(child(ref(db), "system_config/judge_bot"));
+                const jConfig = judgeSnap.exists() ? judgeSnap.val() : {};
+
+                if(jConfig.apiKey) {
+                    const judgePrompt = `I am the Judge. Topic: ${tempBattleData.meta.topic}. Arguments:\n` + 
+                        tempBattleData.transcript.filter(t => t.role === 'bot').map(t => `${t.sender}: ${t.text}`).join("\n") +
+                        `\nDecide winner based on logic. Return JSON: { "winner": "Name", "reason": "Reason", "score": "X/100" }`;
+                    
+                    // STRICTLY USE JUDGE'S MODEL (NO FALLBACK)
+                    const judgeModel = jConfig.model || "gemini-2.5-flash"; 
+                    const judgeReply = await app.callGemini(jConfig.apiKey, judgeModel, judgePrompt);
+                    
+                    try {
+                        const clean = judgeReply.replace(/```json|```/g, "").trim();
+                        decision = JSON.parse(clean);
+                        logs.innerHTML += `<div>> VERDICT: ${decision.winner}</div>`;
+                    } catch(e) { 
+                        decision.reason = "Verdict Parsing Error. Raw: " + judgeReply; 
+                        logs.innerHTML += `<div style="color:red">> JUDGE ERROR: ${e.message}</div>`;
+                    }
+                } else {
+                    logs.innerHTML += `<div style="color:red">> JUDGE API KEY MISSING</div>`;
+                }
+
+                // FINAL SAVE
+                tempBattleData.meta.winner = decision.winner;
+                tempBattleData.judge_feedback = { comment: decision.reason, score: decision.score };
+
+                logs.innerHTML += `<div>> UPLOADING TO ARCHIVES...</div>`;
+                
+                const sessionId = `session_${Date.now()}`;
+                const updates = {};
+                
+                // Add Chat
+                updates[`room_chats/${activeRoomId}/${sessionId}`] = tempBattleData;
+
+                // Update Stats
+                if(decision.winner !== "DRAW") {
+                    for(const p of tempParticipants) {
+                        const snap = await get(child(ref(db), `${p.type}s/${p.id}/public_info`));
+                        const bName = snap.val().botName;
+                        
+                        const matches = (snap.val().matches || 0) + 1;
+                        updates[`${p.type}s/${p.id}/public_info/matches`] = matches;
+
+                        if(bName === decision.winner) {
+                            const wins = (snap.val().wins || 0) + 1;
+                            updates[`${p.type}s/${p.id}/public_info/wins`] = wins;
+                        }
+                    }
+                }
+
+                await update(ref(db), updates);
+                logs.innerHTML += `<div>> PROCESS COMPLETE.</div>`;
+
+                // Reset UI
+                setTimeout(() => {
+                    document.getElementById("liveTerminal").classList.add("hidden");
+                    document.getElementById("warControls").classList.remove("hidden");
+                    document.getElementById("judgeControls").classList.add("hidden");
+                    document.getElementById("warTopic").disabled = false;
+                    document.getElementById("warTopic").value = "";
+                }, 3000);
+            },
+
+            callGemini: async (key, model, text) => {
+                const cleanModel = model.trim();
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${key}`;
+                try {
+                    const r = await fetch(url, { 
+                        method: "POST", headers: {"Content-Type": "application/json"}, 
+                        body: JSON.stringify({ contents: [{ parts: [{ text }] }] }) 
+                    });
+                    const d = await r.json();
+                    if(d.error) return `ERROR: ${d.error.message}`;
+                    if(d.candidates && d.candidates[0]) return d.candidates[0].content.parts[0].text;
+                    return "ERROR: Empty Response";
+                } catch(e) { return `ERROR: ${e.message}`; }
+            },
+
+            selectAll: () => document.querySelectorAll(".p-check").forEach(c => c.checked = true),
+            deselectAll: () => document.querySelectorAll(".p-check").forEach(c => c.checked = false),
+            logout: () => { sessionStorage.removeItem("vyuha_v5"); location.reload(); }
+        };
+
+        document.getElementById("btnLogin").onclick = app.login;
+        window.onload = app.init;
+    </script>
+</body>
+</html>
