@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=1280">
-    <title>VYUHA | STRATEGIC CONSOLE</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VYUHA | STRATEGIC CONSOLE V5</title>
     
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
@@ -13,98 +13,140 @@
 </head>
 <body>
 
-    <div id="loader" class="sys-overlay">
+    <div id="loader" class="sys-overlay loader-zone">
         <div class="loader-content">
-            <div class="spinner"></div>
-            <div class="mono-label">ESTABLISHING SECURE CONNECTION...</div>
+            <div class="spinner-ring"></div>
+            <div class="glitch-text mono-label">ESTABLISHING SECURE UPLINK...</div>
         </div>
     </div>
 
-    <div id="login" class="sys-overlay">
-        <div class="login-panel">
-            <div class="login-brand"><img src="logo.png" alt="VYUHA"></div>
-            <h1>COMMAND ACCESS</h1>
-            <div class="input-stack">
-                <input type="email" id="email" placeholder="OPERATOR ID" autocomplete="off">
-                <input type="password" id="pass" placeholder="ACCESS KEY">
+    <div id="login" class="sys-overlay login-zone">
+        <div class="login-card glass-effect">
+            <div class="login-brand">
+                <div class="logo-icon"><i class="ph-fill ph-hexagon"></i></div>
+                <div class="logo-text">VYUHA <span>OS</span></div>
             </div>
-            <button id="btnLogin" class="btn-hero">INITIALIZE SYSTEM</button>
+            <h1>COMMAND ACCESS</h1>
+            
+            <div class="input-group">
+                <div class="field-wrap">
+                    <i class="ph-bold ph-identification-card input-icon"></i>
+                    <input type="email" id="email" placeholder="OPERATOR ID" autocomplete="off">
+                </div>
+                <div class="field-wrap">
+                    <i class="ph-bold ph-key input-icon"></i>
+                    <input type="password" id="pass" placeholder="ACCESS KEY">
+                </div>
+            </div>
+
+            <button id="btnLogin" class="btn-hero primary-btn">
+                <span>INITIALIZE SYSTEM</span>
+                <i class="ph-bold ph-arrow-right"></i>
+            </button>
             <div id="loginMsg" class="err-txt"></div>
         </div>
     </div>
 
-    <div id="app" class="interface-layer hidden">
+    <div id="app" class="app-layout hidden">
         
-        <aside class="sidebar-panel">
-            <div class="brand-header"><img src="logo.png" alt="Logo"></div>
-            <div class="user-widget">
-                <div id="uAvatar" class="avatar-box"></div>
-                <div class="user-info">
-                    <div id="uName" class="u-name">...</div>
-                    <div id="uRole" class="u-role">UNIT</div>
+        <aside class="sidebar glass-sidebar">
+            <div class="brand-header">
+                <i class="ph-fill ph-strategy"></i>
+                <span>VYUHA</span>
+            </div>
+            
+            <div class="user-widget-card">
+                <div id="uAvatar" class="avatar-circle"></div>
+                <div class="user-details">
+                    <div id="uName" class="u-name">LOADING...</div>
+                    <div id="uRole" class="badge-role">UNIT</div>
                 </div>
             </div>
-            <div class="nav-header">SECTOR CONTROL</div>
-            <nav id="roomListNav" class="nav-stack"></nav>
+
+            <div class="nav-section">
+                <div class="nav-label">SECTOR CONTROL</div>
+                <nav id="roomListNav" class="nav-stack"></nav>
+            </div>
+
             <div class="sidebar-footer">
                 <button onclick="app.logout()" class="btn-disconnect">
-                    <i class="ph-bold ph-power"></i> SHUTDOWN
+                    <i class="ph-bold ph-power"></i> 
+                    <span>SHUTDOWN</span>
                 </button>
             </div>
         </aside>
 
-        <main class="content-canvas">
-            <header class="top-bar">
-                <h2 id="currentRoomTitle">SELECT SECTOR</h2>
-                <div class="status-badge" id="sysStatus">SYSTEM IDLE</div>
+        <main class="main-canvas">
+            
+            <header class="top-bar glass-header">
+                <div class="header-content">
+                    <h2 id="currentRoomTitle">SELECT SECTOR</h2>
+                    <div class="status-pill" id="sysStatus">
+                        <span class="dot pulse"></span> SYSTEM IDLE
+                    </div>
+                </div>
             </header>
 
-            <div class="content-container">
+            <div class="scroll-container">
+                <div class="inner-content">
 
-                <div id="adminZone" class="admin-panel hidden">
-                    <div class="panel-head">
-                        <h3>BATTLE CONFIGURATION</h3>
-                        <span class="mono-sub">EXECUTE NEURAL SIMULATION</span>
-                    </div>
-
-                    <div id="warControls" class="war-input-box">
-                        <input type="text" id="warTopic" placeholder="ENTER BATTLE PARAMETER (TOPIC)...">
-                        <button onclick="app.initiateWar()" class="btn-fire">
-                            <i class="ph-bold ph-lightning"></i> START WAR
-                        </button>
-                    </div>
-
-                    <div id="judgeControls" class="war-input-box hidden">
-                        <div class="judge-msg" style="flex:1; display:flex; align-items:center; font-weight:bold; color:#00C853;">
-                            <i class="ph-bold ph-check-circle" style="margin-right:10px;"></i> 
-                            ARGUMENTS RECEIVED. READY FOR VERDICT.
+                    <div id="adminZone" class="admin-dashboard hidden">
+                        <div class="panel-header">
+                            <div class="ph-title">
+                                <i class="ph-fill ph-gavel"></i>
+                                <h3>BATTLE CONFIGURATION</h3>
+                            </div>
+                            <span class="mono-sub">EXECUTE NEURAL SIMULATION</span>
                         </div>
-                        <button onclick="app.triggerJudge()" class="btn-judge btn-fire" style="background:#000;">
-                            <i class="ph-bold ph-gavel"></i> DECLARE WINNER
-                        </button>
-                    </div>
 
-                    <div class="participant-selector">
-                        <div class="ps-header">
-                            <span>ACTIVE UNITS</span>
-                            <div>
-                                <button onclick="app.selectAll()" class="btn-xs">ALL</button>
-                                <button onclick="app.deselectAll()" class="btn-xs">NONE</button>
+                        <div class="control-grid">
+                            <div id="warControls" class="war-input-box">
+                                <input type="text" id="warTopic" class="modern-input" placeholder="ENTER BATTLE PARAMETER (TOPIC)...">
+                                <button onclick="app.initiateWar()" class="btn-fire glitch-hover">
+                                    <i class="ph-bold ph-lightning"></i> START WAR
+                                </button>
+                            </div>
+
+                            <div id="judgeControls" class="judge-box hidden">
+                                <div class="judge-status">
+                                    <i class="ph-fill ph-circle-notch ph-spin"></i> 
+                                    <span>ARGUMENTS RECEIVED. READY FOR VERDICT.</span>
+                                </div>
+                                <button onclick="app.triggerJudge()" class="btn-judge btn-fire">
+                                    <i class="ph-bold ph-gavel"></i> DECLARE WINNER
+                                </button>
                             </div>
                         </div>
-                        <div id="participantGrid" class="ps-grid"></div>
+
+                        <div class="participant-section">
+                            <div class="ps-header">
+                                <span>ACTIVE UNITS</span>
+                                <div class="toggle-actions">
+                                    <button onclick="app.selectAll()" class="btn-xs">ALL</button>
+                                    <button onclick="app.deselectAll()" class="btn-xs">NONE</button>
+                                </div>
+                            </div>
+                            <div id="participantGrid" class="ps-grid-layout">
+                                </div>
+                        </div>
+
+                        <div id="liveTerminal" class="terminal-wrapper hidden">
+                            <div class="term-header">
+                                <span class="blink">///</span> NEURAL PROCESS LOG
+                            </div>
+                            <div id="termLogs" class="term-body"></div>
+                        </div>
                     </div>
 
-                    <div id="liveTerminal" class="terminal-box hidden">
-                        <div class="term-header">/// NEURAL PROCESS LOG ///</div>
-                        <div id="termLogs" class="term-content"></div>
+                    <div id="battleFeed" class="feed-stream">
+                        <div class="empty-state">
+                            <i class="ph-duotone ph-archive-box"></i>
+                            <div>SELECT A SECTOR TO VIEW ARCHIVES</div>
+                        </div>
                     </div>
+                    
+                    <div class="scroll-pad"></div>
                 </div>
-
-                <div id="battleFeed" class="battle-feed">
-                    <div class="feed-placeholder">SELECT A SECTOR TO VIEW ARCHIVES</div>
-                </div>
-                <div style="height: 100px;"></div>
             </div>
         </main>
     </div>
@@ -183,7 +225,7 @@
                 document.getElementById("app").classList.remove("hidden");
                 document.getElementById("uName").innerText = data.name || data.key || "OPERATOR";
                 document.getElementById("uRole").innerText = role;
-                const av = data.avatarUrl || data.logoUrl || "https://api.dicebear.com/7.x/shapes/svg?seed=Admin";
+                const av = data.avatarUrl || data.logoUrl || "me.png";
                 document.getElementById("uAvatar").style.backgroundImage = `url('${av}')`;
 
                 app.loadRooms();
@@ -229,7 +271,7 @@
                         const sessions = Object.values(snap.val()).sort((a,b) => new Date(b.meta.date) - new Date(a.meta.date));
                         sessions.forEach(s => app.renderSession(s, feed));
                     } else {
-                        feed.innerHTML = `<div class="feed-placeholder">NO ARCHIVES FOUND FOR ${roomId}</div>`;
+                        feed.innerHTML = `<div class="empty-state">NO ARCHIVES FOUND FOR ${roomId}</div>`;
                     }
                 });
             },
